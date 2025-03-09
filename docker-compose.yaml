@@ -1,0 +1,111 @@
+networks:
+  data-engineering-net:
+    driver: bridge
+
+volumes:
+  airflow_data:
+  postgres_data:  
+  nifi_data_conf:
+  nifi_data_content_repository:
+  nifi_data_database_repository:
+  nifi_data_flowfile_repository:
+  nifi_data_logs:
+  nifi_data_nar_extensions:
+  nifi_data_provenance_repository:
+  nifi_data_python_extensions:
+  nifi_data_state:
+  zeppelin_data:
+  minio_data:
+
+services:
+  airflow:
+    image: apache/airflow:slim-latest-python3.9
+    container_name: airflow
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+    entrypoint:
+      [ "/bin/bash",
+        "-c",
+        "if [ ! -f /opt/airflow/airflow.db ];
+          then airflow db migrate; fi 
+          && 
+          airflow users create --username admin --password adminadminadmin --firstname Air --lastname Flow --role Admin --email admin@example.com 
+          && 
+          airflow webserver
+        "
+      ]
+    volumes:
+      - airflow_data:/opt/airflow
+    depends_on:
+      - postgres
+    networks:
+      - data-engineering-net
+
+  postgres:
+    image: postgres:bullseye
+    container_name: postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    command:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - .\\postgres\\init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - data-engineering-net
+
+  nifi:
+    image: apache/nifi:2.2.0
+    container_name: nifi
+    restart: always
+    ports:
+      - "8443:8443"
+    environment:
+      - SINGLE_USER_CREDENTIALS_USERNAME=admin
+      - SINGLE_USER_CREDENTIALS_PASSWORD=adminadminadmin
+    volumes:
+      - nifi_data_conf:/opt/nifi/nifi-current/conf
+      - nifi_data_content_repository:/opt/nifi/nifi-current/content_repository
+      - nifi_data_database_repository:/opt/nifi/nifi-current/database_repository
+      - nifi_data_flowfile_repository:/opt/nifi/nifi-current/flowfile_repository
+      - nifi_data_logs:/opt/nifi/nifi-current/logs
+      - nifi_data_nar_extensions:/opt/nifi/nifi-current/nar_extensions
+      - nifi_data_provenance_repository:/opt/nifi/nifi-current/provenance_repository
+      - nifi_data_python_extensions:/opt/nifi/nifi-current/python_extensions
+      - nifi_data_state:/opt/nifi/nifi-current/state
+    networks:
+      - data-engineering-net
+
+  zeppelin:
+    image: apache/zeppelin:0.12.0
+    container_name: zeppelin
+    restart: always
+    ports:
+      - "8083:8080"
+    volumes:
+      - zeppelin_data:/opt/zeppelin
+    networks:
+      - data-engineering-net
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-18T16-25-55Z-cpuv1
+    container_name: minio
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    command: server --console-address ":9001" /data
+    volumes:
+      - minio_data:/data
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    networks:
+      - data-engineering-net

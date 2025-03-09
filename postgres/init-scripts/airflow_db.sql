@@ -1,0 +1,5 @@
+CREATE USER airflow WITH PASSWORD 'airflow';
+CREATE DATABASE airflow OWNER airflow;
+
+CREATE USER nifi WITH PASSWORD 'nifi';
+CREATE DATABASE nifi OWNER nifi;
